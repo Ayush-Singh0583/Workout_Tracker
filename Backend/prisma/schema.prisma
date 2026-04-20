@@ -1,0 +1,127 @@
+// ─── IronForge PPL Tracker — Prisma Schema ───────────────────────────────────
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ─── User ────────────────────────────────────────────────────────────────────
+
+model User {
+  id           String   @id @default(cuid())
+  email        String   @unique
+  passwordHash String
+  displayName  String?
+  weightUnit   String   @default("kg")
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  sessions WorkoutSession[]
+  records  PersonalRecord[]
+
+  @@map("users")
+}
+
+// ─── Exercise ────────────────────────────────────────────────────────────────
+
+model Exercise {
+  id           String   @id @default(cuid())
+  name         String   @unique
+  category     String   // PUSH | PULL | LEGS
+  muscleGroups String[]
+
+  templates TemplateExercise[]
+  sets      Set[]
+  records   PersonalRecord[]
+
+  @@map("exercises")
+}
+
+// ─── Workout Templates ──────────────────────────────────────────────────────
+
+model WorkoutTemplate {
+  id        String @id @default(cuid())
+  name      String
+  type      String // PUSH | PULL | LEGS
+  sortOrder Int    @default(0)
+
+  exercises TemplateExercise[]
+  sessions  WorkoutSession[]
+
+  @@map("workout_templates")
+}
+
+model TemplateExercise {
+  id         String @id @default(cuid())
+  templateId String
+  exerciseId String
+  targetSets Int
+  targetReps Int
+  sortOrder  Int    @default(0)
+
+  template WorkoutTemplate @relation(fields: [templateId], references: [id], onDelete: Cascade)
+  exercise Exercise        @relation(fields: [exerciseId], references: [id], onDelete: Cascade)
+
+  @@map("template_exercises")
+}
+
+// ─── Workout Sessions ───────────────────────────────────────────────────────
+
+model WorkoutSession {
+  id          String   @id @default(cuid())
+  userId      String
+  templateId  String?
+  date        DateTime @default(now())
+  completed   Boolean  @default(false)
+  durationMin Int?
+  notes       String?
+  createdAt   DateTime @default(now())
+
+  user     User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  template WorkoutTemplate? @relation(fields: [templateId], references: [id], onDelete: SetNull)
+  sets     Set[]
+
+  @@map("workout_sessions")
+}
+
+// ─── Sets ───────────────────────────────────────────────────────────────────
+
+model Set {
+  id         String   @id @default(cuid())
+  sessionId  String
+  exerciseId String
+  setNumber  Int
+  weight     Float
+  reps       Int
+  rpe        Float?
+  notes      String?
+  loggedAt   DateTime @default(now())
+
+  session  WorkoutSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  exercise Exercise       @relation(fields: [exerciseId], references: [id], onDelete: Cascade)
+
+  @@map("sets")
+}
+
+// ─── Personal Records ───────────────────────────────────────────────────────
+
+model PersonalRecord {
+  id           String   @id @default(cuid())
+  userId       String
+  exerciseId   String
+  maxWeight    Float
+  maxReps      Int
+  maxVolume    Float
+  estimated1RM Float
+  dateAchieved DateTime @default(now())
+
+  user     User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  exercise Exercise @relation(fields: [exerciseId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, exerciseId])
+  @@map("personal_records")
+}
